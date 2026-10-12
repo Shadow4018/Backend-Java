@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Схема повністю відповідає JPA-сутностям (Project, TextKey, Translation, GlossaryTerm) -->
+
+    <changeSet id="001-create-projects" author="tms">
+        <createTable tableName="projects">
+            <column name="id" type="INT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="description" type="TEXT"/>
+            <column name="source_language" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_language" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="002-create-text-keys" author="tms">
+        <createTable tableName="text_keys">
+            <column name="id" type="INT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="project_id" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="key_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_text" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="context_note" type="TEXT"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="text_keys" baseColumnNames="project_id"
+                                 constraintName="fk_text_keys_project"
+                                 referencedTableName="projects" referencedColumnNames="id"/>
+    </changeSet>
+
+    <changeSet id="003-create-translations" author="tms">
+        <createTable tableName="translations">
+            <column name="id" type="INT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="text_key_id" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="language_code" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="translated_text" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="translator_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="comment" type="VARCHAR(1000)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="translations" baseColumnNames="text_key_id"
+                                 constraintName="fk_translations_text_key"
+                                 referencedTableName="text_keys" referencedColumnNames="id"/>
+    </changeSet>
+
+    <changeSet id="004-create-glossary-terms" author="tms">
+        <createTable tableName="glossary_terms">
+            <column name="id" type="INT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="term" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="translation" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT"/>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

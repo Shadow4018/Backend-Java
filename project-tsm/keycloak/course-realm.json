@@ -1,0 +1,75 @@
+{
+  "realm": "course-realm",
+  "enabled": true,
+  "accessTokenLifespan": 3600,
+  "sslRequired": "none",
+  "roles": {
+    "realm": [
+      { "name": "USER", "description": "Standard authenticated user" },
+      { "name": "ADMIN", "description": "Administrative privileges: manage projects" },
+      { "name": "TRANSLATOR", "description": "Can add text keys and propose translations" },
+      { "name": "EDITOR", "description": "Can approve translations" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "backend-app",
+      "name": "Backend App",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "redirectUris": [ "http://localhost:*", "http://127.0.0.1:*" ],
+      "webOrigins": [ "*" ],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "attributes": { "post.logout.redirect.uris": "+" }
+    }
+  ],
+  "users": [
+    {
+      "username": "belialu",
+      "enabled": true,
+      "email": "belialu@example.com",
+      "firstName": "Belialu",
+      "lastName": "Admin",
+      "credentials": [
+        { "type": "password", "value": "belialu123", "temporary": false }
+      ],
+      "realmRoles": [ "USER", "ADMIN" ]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "email": "bob@example.com",
+      "firstName": "Bob",
+      "lastName": "User",
+      "credentials": [
+        { "type": "password", "value": "bob123", "temporary": false }
+      ],
+      "realmRoles": [ "USER" ]
+    },
+    {
+      "username": "translator",
+      "enabled": true,
+      "email": "translator@example.com",
+      "firstName": "Tanya",
+      "lastName": "Translator",
+      "credentials": [
+        { "type": "password", "value": "translator123", "temporary": false }
+      ],
+      "realmRoles": [ "USER", "TRANSLATOR" ]
+    },
+    {
+      "username": "editor",
+      "enabled": true,
+      "email": "editor@example.com",
+      "firstName": "Egor",
+      "lastName": "Editor",
+      "credentials": [
+        { "type": "password", "value": "editor123", "temporary": false }
+      ],
+      "realmRoles": [ "USER", "EDITOR" ]
+    }
+  ]
+}
