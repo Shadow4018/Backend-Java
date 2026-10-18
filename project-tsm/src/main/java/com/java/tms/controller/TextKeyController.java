@@ -3,9 +3,9 @@ package com.java.tms.controller;
 import com.java.tms.domain.dto.TextKeyCreateRequest;
 import com.java.tms.domain.dto.TextKeyResponse;
 import com.java.tms.service.TextKeyService;
+import com.java.tms.web.annotation.PostMappingCreated;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,8 +23,7 @@ public class TextKeyController {
         return textKeyService.listByProject(projectId);
     }
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
+    @PostMappingCreated
     public TextKeyResponse create(@PathVariable Integer projectId,
                                    @Valid @RequestBody TextKeyCreateRequest request) {
         return textKeyService.create(projectId, request);

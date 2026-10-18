@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Тестові дані для демонстрації (контекст dev; у тестах не застосовуються) -->
+    <changeSet id="005-seed-tms-data" author="tms" context="dev">
+        <insert tableName="projects">
+            <column name="id" valueNumeric="1"/>
+            <column name="name" value="Limbus Company Localization"/>
+            <column name="description" value="Ukrainian fan translation project"/>
+            <column name="source_language" value="en"/>
+            <column name="target_language" value="uk"/>
+            <column name="status" value="ACTIVE"/>
+        </insert>
+
+        <insert tableName="text_keys">
+            <column name="id" valueNumeric="1"/>
+            <column name="project_id" valueNumeric="1"/>
+            <column name="key_name" value="charon.greeting.01"/>
+            <column name="source_text" value="Vroom vroom. Charon is ready."/>
+            <column name="context_note" value="Said when entering the bus."/>
+        </insert>
+
+        <insert tableName="translations">
+            <column name="id" valueNumeric="1"/>
+            <column name="text_key_id" valueNumeric="1"/>
+            <column name="language_code" value="uk"/>
+            <column name="translated_text" value="Врум-врум. Харон готова."/>
+            <column name="translator_name" value="translator"/>
+            <column name="status" value="PENDING"/>
+        </insert>
+
+        <insert tableName="glossary_terms">
+            <column name="id" valueNumeric="1"/>
+            <column name="term" value="Sinner"/>
+            <column name="translation" value="Грішник"/>
+            <column name="description" value="Головні герої гри"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

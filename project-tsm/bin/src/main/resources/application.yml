@@ -1,0 +1,62 @@
+server:
+  port: 8081
+
+app:
+  security:
+    # після виходу з застосунку виходимо і з Keycloak (SSO-сесії)
+    logout-url: http://localhost:8080/realms/course-realm/protocol/openid-connect/logout?client_id=backend-app&post_logout_redirect_uri=http://localhost:8081/tsm.html
+
+spring:
+  application:
+    name: translation-management-system
+
+  security:
+    oauth2:
+      # JWT для прямих API-запитів (/api/**)
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/course-realm
+
+      # OIDC для UI. Ендпоінти задано явно (без discovery), щоб застосунок
+      # стартував, навіть якщо Keycloak ще не піднявся.
+      client:
+        registration:
+          keycloak:
+            client-id: backend-app
+            client-authentication-method: none
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/keycloak"
+            scope: openid, profile
+        provider:
+          keycloak:
+            authorization-uri: http://localhost:8080/realms/course-realm/protocol/openid-connect/auth
+            token-uri: http://localhost:8080/realms/course-realm/protocol/openid-connect/token
+            jwk-set-uri: http://localhost:8080/realms/course-realm/protocol/openid-connect/certs
+            user-info-uri: http://localhost:8080/realms/course-realm/protocol/openid-connect/userinfo
+            user-name-attribute: preferred_username
+
+  docker:
+    compose:
+      enabled: true
+      lifecycle-management: start-and-stop
+
+  datasource:
+    url: jdbc:mariadb://localhost:3307/tms_db?characterEncoding=UTF-8
+    username: root
+    password: ${DB_PASSWORD:root}
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    hibernate:
+      # схемою керує ТІЛЬКИ Liquibase
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  liquibase:
+    enabled: true
+    change-log: classpath:/db/changelog/changelog-master.xml
+    # 'dev' — включає тестові дані (002-seed-data.xml)
+    contexts: dev

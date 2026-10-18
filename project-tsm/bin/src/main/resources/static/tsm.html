@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TMS | Translation Management</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --success: #10B981;
+            --danger: #EF4444;
+            --bg: #F3F4F6;
+            --surface: #FFFFFF;
+            --text: #1F2937;
+            --border: #E5E7EB;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .auth-panel {
+            background: var(--surface);
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status { font-size: 14px; font-weight: 500; }
+        .status.logged-in { color: var(--success); }
+        .status.logged-out { color: var(--danger); }
+
+        .card {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        h2 { margin-top: 0; font-size: 20px; color: var(--primary); border-bottom: 2px solid var(--bg); padding-bottom: 10px;}
+
+        button {
+            background-color: var(--primary); color: white;
+            border: none; border-radius: 6px;
+            padding: 8px 16px; font-size: 14px; font-weight: 500;
+            cursor: pointer; transition: background-color 0.2s;
+        }
+        button:hover { background-color: var(--primary-hover); }
+        button.danger { background-color: var(--danger); }
+        button.outline { background-color: transparent; border: 1px solid var(--border); color: var(--text); }
+        button.outline:hover { background-color: var(--bg); }
+        button.small { padding: 4px 10px; font-size: 12px; margin-right: 4px; }
+        button.ghost { background: none; border: none; color: var(--primary); padding: 4px; text-decoration: underline; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+        th { font-weight: 600; color: #6B7280; background-color: #F9FAFB; }
+        tr:hover { background-color: #F9FAFB; }
+
+        .form-group { display: flex; gap: 10px; margin-top: 16px; align-items: center; flex-wrap: wrap; }
+        input, select {
+            padding: 8px 12px; border: 1px solid var(--border);
+            border-radius: 6px; font-size: 14px; outline: none;
+        }
+        input:focus { border-color: var(--primary); }
+        input[type="text"] { flex-grow: 1; }
+
+        .empty-state { text-align: center; padding: 20px; color: #9CA3AF; font-style: italic; }
+
+        .badge { padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: bold; white-space: nowrap; }
+        .badge.active { background: #D1FAE5; color: #065F46; }
+        .badge.draft { background: #E5E7EB; color: #374151; }
+        .badge.pending { background: #FEF3C7; color: #92400E; }
+        .badge.approved { background: #DBEAFE; color: #1E40AF; }
+
+        .hint { font-size: 12px; color: #9CA3AF; margin-top: 4px; }
+
+        .workspace-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+        .workspace-header h2 { border-bottom: none; padding-bottom: 0; margin: 0; }
+
+        .tabs { display: flex; gap: 4px; margin-bottom: -1px; }
+        .tab-btn {
+            background: transparent; color: #6B7280; border: 1px solid transparent;
+            border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 20px;
+        }
+        .tab-btn.active { background: var(--surface); color: var(--primary); border-color: var(--border); }
+        .tab-btn:hover:not(.active) { background: #E5E7EB; }
+
+        .tab-panel .card { border-top-left-radius: 0; margin-top: 0; }
+
+        .key-group { margin-bottom: 24px; }
+        .key-group h3 { font-size: 15px; color: var(--text); margin-bottom: 4px; }
+        .key-group .source { color: #6B7280; font-size: 13px; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>TMS <span style="font-size: 16px; color: #6B7280; font-weight: normal;">| Translation Management</span></h1>
+        <div class="auth-panel">
+            <span class="status logged-out" id="loginStatus">Перевірка статусу...</span>
+            <button id="btnLogin" class="outline" onclick="login()">Увійти (Keycloak)</button>
+            <button id="btnLogout" class="danger" style="display: none;" onclick="logout()">Вийти</button>
+        </div>
+    </div>
+
+    <!-- ==================== КАТАЛОГ ПРОЄКТІВ ==================== -->
+    <div id="catalogView">
+        <div class="card">
+            <h2>Проєкти <span class="hint">(створення/зміна/видалення — лише ADMIN)</span></h2>
+            <button onclick="loadProjects()">Завантажити проєкти</button>
+            <table id="projectsTable">
+                <thead><tr><th>ID</th><th>Назва</th><th>Мови</th><th>Статус</th><th>Дії</th></tr></thead>
+                <tbody><tr><td colspan="5" class="empty-state">Натисніть "Завантажити"</td></tr></tbody>
+            </table>
+
+            <div class="form-group">
+                <input type="text" id="newProjectName" placeholder="Назва нового проєкту...">
+                <input type="text" id="newProjectSourceLang" placeholder="source (en)" style="flex-grow: 0; width: 90px;">
+                <input type="text" id="newProjectTargetLang" placeholder="target (uk)" style="flex-grow: 0; width: 90px;">
+                <button onclick="createProject()">Створити проєкт</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== РОБОЧИЙ ПРОСТІР ПРОЄКТУ ==================== -->
+    <div id="workspaceView" style="display: none;">
+        <div class="workspace-header">
+            <button class="outline" onclick="backToCatalog()">&larr; Проєкти</button>
+            <h2 id="workspaceProjectName"></h2>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="originals" onclick="switchTab('originals')">Оригінали</button>
+            <button class="tab-btn" data-tab="translations" onclick="switchTab('translations')">Переклади</button>
+            <button class="tab-btn" data-tab="glossary" onclick="switchTab('glossary')">Глосарій</button>
+        </div>
+
+        <!-- Вкладка: Оригінали -->
+        <div id="tab-originals" class="tab-panel">
+            <div class="card">
+                <table id="keysTable">
+                    <thead><tr><th>#</th><th>Ключ</th><th>Оригінал</th><th>Дії</th></tr></thead>
+                    <tbody><tr><td colspan="4" class="empty-state">Завантаження...</td></tr></tbody>
+                </table>
+
+                <div class="form-group">
+                    <input type="text" id="newKeyName" placeholder="Ключ (напр. charon.greet)" style="flex-grow: 0; width: 150px;">
+                    <input type="text" id="newKeyText" placeholder="Оригінальний текст англійською...">
+                    <button onclick="createTextKey()">Додати рядок</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка: Переклади -->
+        <div id="tab-translations" class="tab-panel" style="display: none;">
+            <div class="card">
+                <div class="form-group">
+                    <label for="translationsKeyFilter"><strong>Ключ:</strong></label>
+                    <select id="translationsKeyFilter" onchange="onTranslationsFilterChange()">
+                        <option value="">Усі ключі</option>
+                    </select>
+                </div>
+                <div id="translationsContent"></div>
+            </div>
+        </div>
+
+        <!-- Вкладка: Глосарій -->
+        <div id="tab-glossary" class="tab-panel" style="display: none;">
+            <div class="card">
+                <h2 style="border:none; padding:0; margin-bottom: 0;">Глосарій <span class="hint">(спільний для всіх проєктів; зміни — лише ADMIN)</span></h2>
+                <table id="glossaryTable">
+                    <thead><tr><th>Термін</th><th>Переклад</th><th>Опис</th><th>Дії</th></tr></thead>
+                    <tbody><tr><td colspan="4" class="empty-state">Завантаження...</td></tr></tbody>
+                </table>
+
+                <div class="form-group">
+                    <input type="text" id="newTermName" placeholder="Термін (напр. Sinner)" style="flex-grow: 0; width: 150px;">
+                    <input type="text" id="newTermTranslation" placeholder="Переклад" style="flex-grow: 0; width: 150px;">
+                    <input type="text" id="newTermDescription" placeholder="Опис (необов'язково)...">
+                    <button onclick="createGlossaryTerm()">Додати термін</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+const API_BASE = '/api';
+let accessToken = null;
+let currentUsername = null;
+let currentRoles = [];
+
+let currentProjectId = null;
+let currentProjectName = null;
+let textKeysCache = [];           // текстові ключі поточного проєкту (з номерами)
+let translationsFilterKeyId = ''; // '' = "Усі ключі" на вкладці Переклади
+let editingTranslationId = null;  // id перекладу, який зараз редагується inline
+
+// --- АВТЕНТИФІКАЦІЯ ---
+// UI входить через OIDC (Keycloak) сесію, потім обмінює її на JWT через /ui/token
+// і надалі ходить у /api/** так само, як прямий API-клієнт (Authorization: Bearer ...).
+function login() {
+    window.location.href = '/oauth2/authorization/keycloak';
+}
+
+function logout() {
+    window.location.href = '/logout';
+}
+
+function decodeJwtRoles(token) {
+    try {
+        const payloadB64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const json = decodeURIComponent(atob(payloadB64).split('').map(c =>
+            '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        const payload = JSON.parse(json);
+        return (payload.realm_access && payload.realm_access.roles) || [];
+    } catch (e) {
+        return [];
+    }
+}
+
+async function tryFetchToken() {
+    try {
+        const res = await fetch('/ui/token');
+        if (!res.ok) throw new Error('not logged in');
+        const data = await res.json();
+        accessToken = data.accessToken;
+        currentUsername = data.username;
+        currentRoles = decodeJwtRoles(accessToken);
+        setLoggedIn(currentUsername);
+        loadProjects();
+    } catch (e) {
+        setLoggedOut();
+    }
+}
+
+function setLoggedIn(username) {
+    const status = document.getElementById('loginStatus');
+    status.textContent = `Увійшли як: ${username}`;
+    status.className = 'status logged-in';
+    document.getElementById('btnLogin').style.display = 'none';
+    document.getElementById('btnLogout').style.display = 'inline-block';
+}
+
+function setLoggedOut() {
+    const status = document.getElementById('loginStatus');
+    status.textContent = 'Не автентифіковано';
+    status.className = 'status logged-out';
+    document.getElementById('btnLogin').style.display = 'inline-block';
+    document.getElementById('btnLogout').style.display = 'none';
+}
+
+function hasRole(role) {
+    return currentRoles.includes(role);
+}
+
+// --- ДОПОМІЖНЕ ---
+async function apiCall(path, method = 'GET', body = null) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+    const res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined
+    });
+
+    if (res.status === 401 || res.status === 403) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Доступ заборонено (${res.status}). ${err.message || 'Потрібна інша роль або вхід у систему.'}`);
+        throw new Error(`HTTP ${res.status}`);
+    }
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: res.statusText }));
+        alert(`Помилка: ${err.message || res.statusText}`);
+        throw new Error(`HTTP ${res.status}`);
+    }
+    if (res.status === 204) return null;
+    return res.json();
+}
+
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+// ==================== КАТАЛОГ ПРОЄКТІВ ====================
+async function loadProjects() {
+    try {
+        const projects = await apiCall('/projects');
+        const tbody = document.querySelector('#projectsTable tbody');
+        if (!projects || projects.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Проєктів ще немає</td></tr>';
+            return;
+        }
+        tbody.innerHTML = '';
+        projects.forEach(p => {
+            const row = document.createElement('tr');
+            const badgeClass = p.status === 'ACTIVE' ? 'active' : 'draft';
+            row.innerHTML = `
+                <td>${p.id}</td>
+                <td>${escapeHtml(p.name)}</td>
+                <td>${escapeHtml(p.sourceLanguage)} &rarr; ${escapeHtml(p.targetLanguage)}</td>
+                <td><span class="badge ${badgeClass}">${p.status}</span></td>
+                <td>
+                    <button class="small" onclick="openProjectWorkspace(${p.id}, '${escapeHtml(p.name).replace(/'/g, "\\'")}')">Відкрити каталог</button>
+                    <button class="small danger" onclick="deleteProject(${p.id})">Видалити</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (e) {}
+}
+
+async function createProject() {
+    const name = document.getElementById('newProjectName').value;
+    const sourceLanguage = document.getElementById('newProjectSourceLang').value || 'en';
+    const targetLanguage = document.getElementById('newProjectTargetLang').value || 'uk';
+    if (!name) return alert('Вкажіть назву проєкту');
+    try {
+        await apiCall('/projects', 'POST', { name, sourceLanguage, targetLanguage });
+        document.getElementById('newProjectName').value = '';
+        loadProjects();
+    } catch (e) {}
+}
+
+async function deleteProject(id) {
+    if (!confirm('Видалити проєкт разом з усіма ключами й перекладами?')) return;
+    try {
+        await apiCall(`/projects/${id}`, 'DELETE');
+        loadProjects();
+    } catch (e) {}
+}
+
+// ==================== ПЕРЕХІД У РОБОЧИЙ ПРОСТІР ПРОЄКТУ ====================
+function openProjectWorkspace(id, name) {
+    currentProjectId = id;
+    currentProjectName = name;
+    translationsFilterKeyId = '';
+    editingTranslationId = null;
+
+    document.getElementById('catalogView').style.display = 'none';
+    document.getElementById('workspaceView').style.display = 'block';
+    document.getElementById('workspaceProjectName').textContent = name;
+
+    switchTab('originals');
+    loadKeys();
+    loadGlossary();
+}
+
+function backToCatalog() {
+    document.getElementById('workspaceView').style.display = 'none';
+    document.getElementById('catalogView').style.display = 'block';
+    currentProjectId = null;
+    loadProjects();
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    document.getElementById(`tab-${tab}`).style.display = 'block';
+    if (tab === 'translations') loadTranslationsView();
+}
+
+// ==================== ВКЛАДКА: ОРИГІНАЛИ ====================
+async function loadKeys() {
+    try {
+        textKeysCache = await apiCall(`/projects/${currentProjectId}/text-keys`);
+        renderKeysTable();
+        populateTranslationsFilter();
+    } catch (e) {}
+}
+
+function renderKeysTable() {
+    const tbody = document.querySelector('#keysTable tbody');
+    if (!textKeysCache || textKeysCache.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">У цьому проєкті ще немає тексту</td></tr>';
+        return;
+    }
+    tbody.innerHTML = '';
+    textKeysCache.forEach(k => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${k.number}</td>
+            <td><code>${escapeHtml(k.keyName)}</code></td>
+            <td>${escapeHtml(k.sourceText)}</td>
+            <td>
+                <button class="small outline" onclick="goToTranslationsForKey(${k.id})">Переклади &rarr;</button>
+                <button class="small danger" onclick="deleteKey(${k.id})">Видалити</button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+async function createTextKey() {
+    const keyName = document.getElementById('newKeyName').value;
+    const sourceText = document.getElementById('newKeyText').value;
+    if (!keyName || !sourceText) return alert('Заповніть поля ключа');
+    try {
+        await apiCall(`/projects/${currentProjectId}/text-keys`, 'POST', { keyName, sourceText });
+        document.getElementById('newKeyName').value = '';
+        document.getElementById('newKeyText').value = '';
+        loadKeys();
+    } catch (e) {}
+}
+
+async function deleteKey(id) {
+    if (!confirm('Видалити ключ разом з перекладами?')) return;
+    try {
+        await apiCall(`/projects/${currentProjectId}/text-keys/${id}`, 'DELETE');
+        loadKeys();
+    } catch (e) {}
+}
+
+// Клік "Переклади →" на оригіналі: перемикає на вкладку Переклади й одразу фільтрує на цей ключ.
+function goToTranslationsForKey(textKeyId) {
+    translationsFilterKeyId = String(textKeyId);
+    document.getElementById('translationsKeyFilter').value = translationsFilterKeyId;
+    document.querySelector('.tab-btn[data-tab="translations"]').click();
+}
+
+// ==================== ВКЛАДКА: ПЕРЕКЛАДИ ====================
+function populateTranslationsFilter() {
+    const select = document.getElementById('translationsKeyFilter');
+    const previous = select.value;
+    select.innerHTML = '<option value="">Усі ключі</option>';
+    textKeysCache.forEach(k => {
+        const opt = document.createElement('option');
+        opt.value = k.id;
+        opt.textContent = `#${k.number} ${k.keyName}`;
+        select.appendChild(opt);
+    });
+    select.value = textKeysCache.some(k => String(k.id) === previous) ? previous : '';
+    translationsFilterKeyId = select.value;
+}
+
+function onTranslationsFilterChange() {
+    translationsFilterKeyId = document.getElementById('translationsKeyFilter').value;
+    loadTranslationsView();
+}
+
+async function loadTranslationsView() {
+    const container = document.getElementById('translationsContent');
+    if (!textKeysCache || textKeysCache.length === 0) {
+        container.innerHTML = '<p class="empty-state">У цьому проєкті ще немає оригінального тексту. Додайте його на вкладці "Оригінали".</p>';
+        return;
+    }
+
+    if (translationsFilterKeyId) {
+        const key = textKeysCache.find(k => String(k.id) === String(translationsFilterKeyId));
+        const translations = await apiCall(`/text-keys/${translationsFilterKeyId}/translations`).catch(() => []);
+        container.innerHTML = renderKeyGroup(key, translations, true);
+        return;
+    }
+
+    // "Усі ключі": по одній групі на кожен текстовий ключ.
+    const groups = await Promise.all(textKeysCache.map(async k => ({
+        key: k,
+        translations: await apiCall(`/text-keys/${k.id}/translations`).catch(() => [])
+    })));
+    container.innerHTML = groups.map(g => renderKeyGroup(g.key, g.translations, false)).join('');
+}
+
+function renderKeyGroup(key, translations, withProposeForm) {
+    const rows = (translations && translations.length > 0)
+        ? translations.map(t => renderTranslationRow(t, key.id)).join('')
+        : `<tr><td colspan="6" class="empty-state">Ще немає перекладів${withProposeForm ? '. Запропонуйте перший!' : ''}</td></tr>`;
+
+    const proposeForm = withProposeForm ? `
+        <div class="form-group">
+            <select id="newTransLang"><option value="uk">UK</option><option value="pl">PL</option></select>
+            <input type="text" id="newTransText" placeholder="Ваш варіант перекладу...">
+            <button onclick="createTranslation(${key.id})">Запропонувати</button>
+        </div>` : '';
+
+    return `
+        <div class="key-group">
+            <h3>#${key.number} <code>${escapeHtml(key.keyName)}</code></h3>
+            <div class="source">${escapeHtml(key.sourceText)}</div>
+            <table>
+                <thead><tr><th>#</th><th>Мова</th><th>Текст перекладу</th><th>Автор</th><th>Статус</th><th>Дії</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            ${proposeForm}
+        </div>
+    `;
+}
+
+function renderTranslationRow(t, textKeyId) {
+    if (editingTranslationId === t.id) {
+        return `
+            <tr>
+                <td>${t.number}</td>
+                <td><input type="text" id="editLang-${t.id}" value="${escapeHtml(t.languageCode)}" style="width: 60px;"></td>
+                <td><input type="text" id="editText-${t.id}" value="${escapeHtml(t.translatedText)}"></td>
+                <td>@${escapeHtml(t.translatorName || 'unknown')}</td>
+                <td><span class="badge pending">${t.status}</span></td>
+                <td>
+                    <button class="small" onclick="saveTranslationEdit(${t.id}, ${textKeyId})">Зберегти</button>
+                    <button class="small outline" onclick="cancelTranslationEdit()">Скасувати</button>
+                </td>
+            </tr>
+        `;
+    }
+
+    const isOwner = currentUsername && t.translatorName === currentUsername;
+    const isEditorOrAdmin = hasRole('EDITOR') || hasRole('ADMIN');
+    const isPending = t.status !== 'APPROVED';
+    const badgeClass = t.status === 'APPROVED' ? 'approved' : 'pending';
+
+    let actions = '';
+    if (isOwner && isPending) {
+        // Власна пропозиція перекладача: "Затвердити" замінено на "Редагувати".
+        actions += `<button class="small" onclick="startTranslationEdit(${t.id})">Редагувати</button>`;
+    } else if (!isOwner && isEditorOrAdmin && isPending) {
+        actions += `<button class="small" onclick="approveTranslation(${t.id})">Затвердити</button>`;
+    }
+    if (isOwner || isEditorOrAdmin) {
+        actions += `<button class="small danger" onclick="deleteTranslation(${t.id})">Видалити</button>`;
+    }
+
+    return `
+        <tr>
+            <td>${t.number}</td>
+            <td><strong>${escapeHtml(t.languageCode)}</strong></td>
+            <td>${escapeHtml(t.translatedText)}</td>
+            <td>@${escapeHtml(t.translatorName || 'unknown')}</td>
+            <td><span class="badge ${badgeClass}">${t.status}</span></td>
+            <td>${actions || '&mdash;'}</td>
+        </tr>
+    `;
+}
+
+async function createTranslation(textKeyId) {
+    const translatedText = document.getElementById('newTransText').value;
+    const languageCode = document.getElementById('newTransLang').value;
+    if (!translatedText) return alert('Введіть текст перекладу');
+    try {
+        await apiCall(`/text-keys/${textKeyId}/translations`, 'POST', { languageCode, translatedText });
+        loadTranslationsView();
+    } catch (e) {}
+}
+
+function startTranslationEdit(translationId) {
+    editingTranslationId = translationId;
+    loadTranslationsView();
+}
+
+function cancelTranslationEdit() {
+    editingTranslationId = null;
+    loadTranslationsView();
+}
+
+async function saveTranslationEdit(translationId, textKeyId) {
+    const languageCode = document.getElementById(`editLang-${translationId}`).value;
+    const translatedText = document.getElementById(`editText-${translationId}`).value;
+    if (!translatedText) return alert('Текст перекладу не може бути порожнім');
+
+    try {
+        await apiCall(`/text-keys/${textKeyId}/translations/${translationId}`, 'PUT', { languageCode, translatedText });
+        editingTranslationId = null;
+        loadTranslationsView();
+    } catch (e) {}
+}
+
+async function approveTranslation(id) {
+    try {
+        await apiCall(`/translations/${id}/approve`, 'PATCH');
+        loadTranslationsView();
+    } catch (e) {}
+}
+
+async function deleteTranslation(id) {
+    if (!confirm('Видалити переклад?')) return;
+    try {
+        await apiCall(`/translations/${id}`, 'DELETE');
+        loadTranslationsView();
+    } catch (e) {}
+}
+
+// ==================== ВКЛАДКА: ГЛОСАРІЙ ====================
+// Глосарій спільний для всіх проєктів (не належить конкретному проєкту).
+async function loadGlossary() {
+    try {
+        const terms = await apiCall('/glossary');
+        const tbody = document.querySelector('#glossaryTable tbody');
+        if (!terms || terms.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Глосарій поки порожній</td></tr>';
+            return;
+        }
+        tbody.innerHTML = '';
+        terms.forEach(term => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${escapeHtml(term.term)}</strong></td>
+                <td>${escapeHtml(term.translation)}</td>
+                <td>${escapeHtml(term.description || '')}</td>
+                <td><button class="small danger" onclick="deleteGlossaryTerm(${term.id})">Видалити</button></td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (e) {}
+}
+
+async function createGlossaryTerm() {
+    const term = document.getElementById('newTermName').value;
+    const translation = document.getElementById('newTermTranslation').value;
+    const description = document.getElementById('newTermDescription').value;
+    if (!term || !translation) return alert('Заповніть термін і переклад');
+    try {
+        await apiCall('/glossary', 'POST', { term, translation, description });
+        document.getElementById('newTermName').value = '';
+        document.getElementById('newTermTranslation').value = '';
+        document.getElementById('newTermDescription').value = '';
+        loadGlossary();
+    } catch (e) {}
+}
+
+async function deleteGlossaryTerm(id) {
+    if (!confirm('Видалити термін глосарію?')) return;
+    try {
+        await apiCall(`/glossary/${id}`, 'DELETE');
+        loadGlossary();
+    } catch (e) {}
+}
+
+// Старт
+tryFetchToken();
+</script>
+
+</body>
+</html>
