@@ -4,9 +4,9 @@ import com.java.tms.domain.dto.ProjectCreateRequest;
 import com.java.tms.domain.dto.ProjectResponse;
 import com.java.tms.domain.dto.ProjectUpdateRequest;
 import com.java.tms.service.ProjectService;
+import com.java.tms.web.annotation.PostMappingCreated;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,8 +32,7 @@ public class ProjectController {
         return projectService.getById(id);
     }
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
+    @PostMappingCreated
     public ProjectResponse create(@Valid @RequestBody ProjectCreateRequest request) {
         return projectService.create(request);
     }

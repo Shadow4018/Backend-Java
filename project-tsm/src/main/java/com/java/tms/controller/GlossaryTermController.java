@@ -3,9 +3,9 @@ package com.java.tms.controller;
 import com.java.tms.domain.dto.GlossaryTermCreateRequest;
 import com.java.tms.domain.dto.GlossaryTermResponse;
 import com.java.tms.service.GlossaryTermService;
+import com.java.tms.web.annotation.PostMappingCreated;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,8 +23,7 @@ public class GlossaryTermController {
         return glossaryTermService.listAll();
     }
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
+    @PostMappingCreated
     public GlossaryTermResponse create(@Valid @RequestBody GlossaryTermCreateRequest request) {
         return glossaryTermService.create(request);
     }
