@@ -1,5 +1,6 @@
 package com.java.tms.service;
 
+import com.java.tms.aop.annotation.Cached;
 import com.java.tms.domain.dto.GlossaryTermCreateRequest;
 import com.java.tms.domain.dto.GlossaryTermResponse;
 import com.java.tms.domain.mapper.GlossaryTermMapper;
@@ -24,6 +25,9 @@ public class GlossaryTermService {
         return glossaryTermMapper.toResponse(glossaryTermRepository.save(term));
     }
 
+    // The glossary rarely changes within a short window, so a short-TTL cache (AOP, not
+    // production cache-invalidation) is a reasonable demo use for a read-heavy listing.
+    @Cached(ttlMs = 30_000)
     @Transactional(readOnly = true)
     public List<GlossaryTermResponse> listAll() {
         return glossaryTermRepository.findAll().stream()

@@ -1,5 +1,7 @@
 package com.java.tms.service;
 
+import com.java.tms.aop.annotation.AuditChange;
+import com.java.tms.aop.annotation.ExecutionTimed;
 import com.java.tms.domain.dto.ProjectCreateRequest;
 import com.java.tms.domain.dto.ProjectResponse;
 import com.java.tms.domain.dto.ProjectUpdateRequest;
@@ -22,12 +24,14 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final ProjectMapper projectMapper;
 
+    @AuditChange(action = "CREATE_PROJECT")
     @Transactional
     public ProjectResponse create(ProjectCreateRequest request) {
         Project project = projectMapper.toEntity(request);
         return projectMapper.toResponse(projectRepository.save(project));
     }
 
+    @ExecutionTimed
     @Transactional(readOnly = true)
     public List<ProjectResponse> listAll() {
         return projectRepository.findAll().stream()
@@ -40,6 +44,7 @@ public class ProjectService {
         return projectMapper.toResponse(findOrThrow(id));
     }
 
+    @AuditChange(action = "UPDATE_PROJECT")
     @Transactional
     public ProjectResponse update(Integer id, ProjectUpdateRequest request) {
         Project project = findOrThrow(id);
@@ -47,6 +52,7 @@ public class ProjectService {
         return projectMapper.toResponse(projectRepository.save(project));
     }
 
+    @AuditChange(action = "DELETE_PROJECT")
     @Transactional
     public void delete(Integer id) {
         Project project = findOrThrow(id);
