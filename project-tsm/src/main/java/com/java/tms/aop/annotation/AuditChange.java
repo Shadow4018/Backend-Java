@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
  * audit trail (who did it, with which arguments, with what result) by
  * {@link com.java.tms.aop.aspect.AuditAspect}.
  *
- * <p>This is a different cross-cutting concern from plain logging: it fires only
+ * <p>This is a genuinely different cross-cutting concern from plain logging: it fires only
  * on a normal return ({@code @AfterReturning}), so a failed/aborted mutation deliberately
  * leaves no audit entry — an audit trail records what actually happened, not what was
  * attempted.
@@ -21,6 +21,6 @@ import java.lang.annotation.Target;
 @Documented
 public @interface AuditChange {
 
-    /** Short, human-readable action name recorded in the audit entry, "CREATE_PROJECT" as exampl. */
+    /** Short, human-readable action name recorded in the audit entry, e.g. "CREATE_PROJECT". */
     String action();
 }

@@ -1,5 +1,6 @@
 package com.java.tms.service;
 
+import com.java.tms.async.SlowSideEffects;
 import com.java.tms.domain.dto.ProjectCreateRequest;
 import com.java.tms.domain.dto.ProjectResponse;
 import com.java.tms.domain.dto.ProjectUpdateRequest;
@@ -37,6 +38,10 @@ class ProjectServiceUnitTest {
     private ProjectRepository projectRepository;
     @Mock
     private ProjectMapper projectMapper;
+    @Mock
+    private SlowSideEffects slowSideEffects; // Lab 5: fire-and-forget email on create(); a
+                                              // mock's void @Async method is a no-op, which is
+                                              // exactly what this test needs.
     @InjectMocks
     private ProjectService projectService;
 

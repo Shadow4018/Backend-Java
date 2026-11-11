@@ -21,6 +21,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@link ProceedingJoinPoint#proceed()}, so the annotated method's body does not run at
  * all for that call. On a miss, it calls {@code proceed()} exactly once and remembers the
  * result for next time.
+ *
+ * <p>This is a lab/demo-grade cache (no invalidation on writes elsewhere in the app) — good
+ * enough to demonstrate the AOP mechanism, not a production caching strategy.
  */
 @Aspect
 @Component

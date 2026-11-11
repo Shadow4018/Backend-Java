@@ -1,5 +1,6 @@
 package com.java.tms.exception;
 
+import com.java.tms.async.TaskOverloadedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,5 +31,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApplicationErrorResponse> handleAccessDenied(AccessDeniedException ex) {
         log.warn("Access denied: {}", ex.getMessage());
         return new ResponseEntity<>(new ApplicationErrorResponse(ex, HttpStatus.FORBIDDEN.value()), HttpStatus.FORBIDDEN);
+    }
+
+    // Lab 5: a saturated executor is a deliberate, explicit "try again later" (503), never
+    // an accidental, unmapped 500.
+    @ExceptionHandler(TaskOverloadedException.class)
+    public ResponseEntity<ApplicationErrorResponse> handleTaskOverloaded(TaskOverloadedException ex) {
+        log.warn("Task rejected by a saturated executor: {}", ex.getMessage());
+        return new ResponseEntity<>(new ApplicationErrorResponse(ex, HttpStatus.SERVICE_UNAVAILABLE.value()), HttpStatus.SERVICE_UNAVAILABLE);
     }
 }

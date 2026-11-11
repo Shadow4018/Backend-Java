@@ -1,5 +1,7 @@
 package com.java.tms.service;
 
+import com.java.tms.async.AsyncConfig;
+import com.java.tms.async.SlowSideEffects;
 import com.java.tms.domain.dto.ProjectCreateRequest;
 import com.java.tms.domain.dto.ProjectResponse;
 import com.java.tms.domain.dto.ProjectUpdateRequest;
@@ -19,7 +21,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 // (one demo project) is NOT inserted and counts below stay exact.
 @DataJpaTest
 @ActiveProfiles("test")
-@Import({ProjectMapperImpl.class, ProjectService.class})
+// Lab 5: ProjectService now also depends on SlowSideEffects (fire-and-forget email on
+// create()), which itself needs AsyncConfig's narrowTaskExecutor bean - both must be
+// explicitly imported into this @DataJpaTest slice the same way ProjectMapperImpl is.
+@Import({ProjectMapperImpl.class, ProjectService.class, SlowSideEffects.class, AsyncConfig.class})
 class ProjectServiceTest {
 
     @Autowired

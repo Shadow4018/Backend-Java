@@ -2,6 +2,7 @@ package com.java.tms.service;
 
 import com.java.tms.aop.annotation.AuditChange;
 import com.java.tms.aop.annotation.ExecutionTimed;
+import com.java.tms.async.SlowSideEffects;
 import com.java.tms.domain.dto.ProjectCreateRequest;
 import com.java.tms.domain.dto.ProjectResponse;
 import com.java.tms.domain.dto.ProjectUpdateRequest;
@@ -21,14 +22,22 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ProjectService {
 
+    private static final String PROJECT_CREATED_NOTIFICATION_ADDRESS = "team@tms.example.com";
+
     private final ProjectRepository projectRepository;
     private final ProjectMapper projectMapper;
+    private final SlowSideEffects slowSideEffects;
 
     @AuditChange(action = "CREATE_PROJECT")
     @Transactional
     public ProjectResponse create(ProjectCreateRequest request) {
         Project project = projectMapper.toEntity(request);
-        return projectMapper.toResponse(projectRepository.save(project));
+        ProjectResponse response = projectMapper.toResponse(projectRepository.save(project));
+        // Fire-and-forget (Lab 5): we do not wait for this, and nothing here ever inspects
+        // its result - create() returns to its own caller well before the simulated ~1s
+        // "email send" actually completes on the dedicated async executor.
+        slowSideEffects.sendProjectCreatedEmailAsync(PROJECT_CREATED_NOTIFICATION_ADDRESS, response.getName());
+        return response;
     }
 
     @ExecutionTimed

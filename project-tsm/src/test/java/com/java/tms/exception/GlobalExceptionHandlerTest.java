@@ -1,5 +1,6 @@
 package com.java.tms.exception;
 
+import com.java.tms.async.TaskOverloadedException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -49,6 +50,23 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getStatus()).isEqualTo(403);
         assertThat(response.getBody().getError()).isEqualTo("AccessDeniedException");
+    }
+
+    @Test
+    void handleTaskOverloaded_savedExecutorRejection_returns503WithTryAgainMessage() {
+        // Arrange: Lab 5 - a saturated executor must be a deliberate 503, never an
+        // accidental, unmapped 500.
+        TaskOverloadedException ex = new TaskOverloadedException(
+                "The task queue is full right now - please try again in a moment", new RuntimeException("rejected"));
+
+        // Act
+        ResponseEntity<ApplicationErrorResponse> response = handler.handleTaskOverloaded(ex);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getStatus()).isEqualTo(503);
+        assertThat(response.getBody().getMessage()).contains("try again");
     }
 
     @Test

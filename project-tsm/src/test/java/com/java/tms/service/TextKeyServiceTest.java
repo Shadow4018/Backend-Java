@@ -1,5 +1,7 @@
 package com.java.tms.service;
 
+import com.java.tms.async.AsyncConfig;
+import com.java.tms.async.SlowSideEffects;
 import com.java.tms.domain.dto.ProjectCreateRequest;
 import com.java.tms.domain.dto.TextKeyCreateRequest;
 import com.java.tms.domain.dto.TextKeyResponse;
@@ -22,7 +24,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DataJpaTest
 @ActiveProfiles("test")
-@Import({ProjectMapperImpl.class, TextKeyMapperImpl.class, ProjectService.class, TextKeyService.class})
+// Lab 5: ProjectService now also depends on SlowSideEffects/AsyncConfig (see ProjectServiceTest).
+@Import({ProjectMapperImpl.class, TextKeyMapperImpl.class, ProjectService.class, TextKeyService.class,
+        SlowSideEffects.class, AsyncConfig.class})
 class TextKeyServiceTest {
 
     @Autowired
