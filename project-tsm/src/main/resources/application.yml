@@ -2,6 +2,10 @@ server:
   port: 8081
 
 app:
+  # Lab 6: cron першого (щогодинного) тригера прибирання можна перевизначити для демонстрації,
+  # напр. змінною середовища APP_QUARTZ_CLEANUP_HOURLY_CRON="0/20 * * * * ?"
+  quartz:
+    cleanup-hourly-cron: "0 0 * * * ?"
   security:
     # після виходу з застосунку виходимо і з Keycloak (SSO-сесії)
     logout-url: http://localhost:8080/realms/course-realm/protocol/openid-connect/logout?client_id=backend-app&post_logout_redirect_uri=http://localhost:8081/tsm.html
@@ -60,3 +64,21 @@ spring:
     change-log: classpath:/db/changelog/changelog-master.xml
     # 'dev' — включає тестові дані (002-seed-data.xml)
     contexts: dev
+
+  # Lab 6: Quartz зберігає розклад у БД (JDBC job store), тож він переживає перезапуск
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      # таблиці QRTZ_* створює ТІЛЬКИ Liquibase (003-quartz-schema.xml), Spring Boot — ніколи
+      initialize-schema: never
+    # той самий JobKey/TriggerKey при кожному старті -> оновлення, а не дублювання
+    overwrite-existing-jobs: true
+    wait-for-jobs-to-complete-on-shutdown: true
+    properties:
+      org.quartz.scheduler.instanceName: tms-scheduler
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+      org.quartz.jobStore.isClustered: false
+      # JobDataMap зберігається як текст (без Java-серіалізації) - усі значення мають бути рядками
+      org.quartz.jobStore.useProperties: true
+      org.quartz.threadPool.threadCount: 3
+

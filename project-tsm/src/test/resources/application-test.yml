@@ -26,3 +26,13 @@ spring:
         jwt:
           # Placeholder for tests: the decoder is created lazily, so no Keycloak is needed at startup.
           jwk-set-uri: http://localhost:8080/realms/course-realm/protocol/openid-connect/certs
+
+  # Lab 6: у тестах планувальник не стартує сам (щоб справжні cron-тригери не спрацьовували
+  # посеред тестів), але JDBC job store і таблиці QRTZ_* (з Liquibase) працюють як у проді.
+  quartz:
+    auto-startup: false
+    properties:
+      # Spring caches test contexts, and two live contexts must not share a Quartz scheduler name
+      # ("Active Scheduler of name ... already registered"). A random name per context also gives
+      # each context its own SCHED_NAME rows in the shared in-memory H2 database.
+      org.quartz.scheduler.instanceName: tms-test-${random.uuid}
