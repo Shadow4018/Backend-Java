@@ -7,5 +7,6 @@
 
     <include file="db/changelog/001-initial-schema.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/002-seed-data.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/003-quartz-schema.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
