@@ -1,0 +1,38 @@
+server:
+  port: 8082
+
+app:
+  cors:
+    # браузерний UI віддає core-service (8081) і напряму викликає цей сервіс (8082)
+    allowed-origins: http://localhost:8081
+
+spring:
+  application:
+    name: glossary-service
+
+  security:
+    oauth2:
+      # ті самі токени Keycloak, що й у core-service
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/course-realm
+
+  # Власна БД сервісу (не ділиться таблицями з core-service). Контейнер MariaDB піднімає
+  # core-service (compose.yaml у корені) або `docker compose up -d` з кореня репозиторію.
+  datasource:
+    url: jdbc:mariadb://localhost:3307/tms_glossary_db?createDatabaseIfNotExist=true&characterEncoding=UTF-8
+    username: root
+    password: ${DB_PASSWORD:root}
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    hibernate:
+      # схемою керує ТІЛЬКИ Liquibase
+      ddl-auto: none
+    show-sql: false
+
+  liquibase:
+    enabled: true
+    change-log: classpath:/db/changelog/changelog-master.xml
+    # 'dev' — включає тестові дані (002-glossary-seed.xml)
+    contexts: dev
