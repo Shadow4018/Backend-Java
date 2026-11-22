@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.java</groupId>
+        <artifactId>translation-management-system</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>tms-common</artifactId>
+    <name>tms-common</name>
+    <description>Objects shared by several services (DTOs only). No Spring Boot app, no logic.</description>
+
+    <!-- jar, no main class, no spring-boot-maven-plugin: it is a plain library.
+         Test dependencies and Lombok come from the root pom. -->
+</project>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Тестові дані для демонстрації (контекст dev; у тестах не застосовуються) -->
+    <changeSet id="002-seed-glossary" author="tms" context="dev">
+        <insert tableName="glossary_terms">
+            <column name="id" valueNumeric="1"/>
+            <column name="term" value="Sinner"/>
+            <column name="translation" value="Грішник"/>
+            <column name="description" value="Головні герої гри"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

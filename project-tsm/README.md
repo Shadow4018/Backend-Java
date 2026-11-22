@@ -26,10 +26,16 @@ MariaDB, Spring Security (OIDC через Keycloak + JWT resource server).
    | editor       | editor123       | USER, EDITOR       |
    | bob          | bob123          | USER               |
 
-3. Запустити застосунок:
+3. Один раз зібрати й встановити модулі (щоб `core-service` і `glossary-service`
+   бачили `tms-common` у локальному репозиторії), потім запустити сервіси
+   (з кореня репозиторію; кожен у своєму терміналі):
    ```bash
-   mvn spring-boot:run
+   mvn clean install -DskipTests
+   mvn -pl core-service spring-boot:run        # порт 8081, сам піднімає MariaDB і Keycloak
+   mvn -pl glossary-service spring-boot:run    # порт 8082, потрібна БД з кроку 2
    ```
+   `core-service` запускайте першим (або виконайте `docker compose up -d`):
+   `glossary-service` сам контейнери не піднімає.
    Liquibase створить схему й тестові дані (контекст `dev`, автоматично
    активний через `spring.liquibase.contexts` у `application.yml`).
 
@@ -75,5 +81,30 @@ MariaDB, Spring Security (OIDC через Keycloak + JWT resource server).
 
 ## Тести
 ```bash
-mvn test
+mvn test          # усі модулі
+mvn verify        # повна збірка: тести + пакування + перевірка незалежності сервісів
 ```
+
+## Структура: multi-module Maven (Лаб.№7)
+
+```
+pom.xml                кореневий (packaging=pom): <modules>, спільні залежності й плагіни
+common/                tms-common: спільні DTO (лише ApplicationErrorResponse), без логіки
+core-service/          порт 8081: проєкти, ключі, переклади, UI, безпека, Quartz  (БД tms_db)
+glossary-service/      порт 8082: глосарій                                       (БД tms_glossary_db)
+compose.yaml           MariaDB + Keycloak для розробки
+```
+- Кожен сервіс має власний `main`, `application.yml`, порт, тести, `Dockerfile` і плагін
+  `spring-boot-maven-plugin` у власному `pom.xml`.
+- Сервіси не залежать один від одного (перевіряє `maven-enforcer-plugin` при кожній збірці);
+  спільне — лише модуль `common`.
+- UI (`core-service`) викликає глосарій напряму на порту 8082 з тим самим Bearer-токеном;
+  `glossary-service` дозволяє CORS для `http://localhost:8081`.
+- Docker-образи збираються з кореня репозиторію:
+  ```bash
+  docker build -f core-service/Dockerfile -t tms-core-service .
+  docker build -f glossary-service/Dockerfile -t tms-glossary-service .
+  ```
+- Таблиця `glossary_terms` у БД `tms_db` залишилась від старої монолітної версії й більше не
+  використовується (застосовані зміни Liquibase не редагуються); її можна видалити окремою
+  міграцією після переносу даних.
