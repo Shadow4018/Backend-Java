@@ -13,6 +13,7 @@ COPY pom.xml pom.xml
 COPY common/pom.xml common/pom.xml
 COPY core-service/pom.xml core-service/pom.xml
 COPY glossary-service/pom.xml glossary-service/pom.xml
+COPY notification-service/pom.xml notification-service/pom.xml
 COPY common/src common/src
 COPY glossary-service/src glossary-service/src
 RUN mvn -B -ntp -pl glossary-service -am -DskipTests package

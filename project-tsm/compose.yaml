@@ -25,5 +25,88 @@ services:
     volumes:
       - ./keycloak/course-realm.json:/opt/keycloak/data/import/course-realm.json:ro
 
+  # Lab 8: the message broker. 5672 - AMQP (services), 15672 - management UI (guest/guest).
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      # durable queues and persistent messages survive a restart of the container
+      - tms_rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------------------------
+  # Lab 8, scenario 6: the services themselves as containers (profile "apps", NOT started by a plain
+  # `docker compose up -d` and NOT by core-service's docker-compose support):
+  #     docker compose --profile apps up -d --build
+  # Inside the compose network a container reaches another one by its SERVICE NAME, so the broker
+  # address is RABBITMQ_HOST=rabbitmq (not "localhost", which would be the container itself).
+  # Started from the IDE the same services use the default from application.yml: localhost.
+  # ---------------------------------------------------------------------------------------------
+  core-service:
+    profiles: ["apps"]
+    build:
+      context: .
+      dockerfile: core-service/Dockerfile
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/tms_db?characterEncoding=UTF-8
+      # server-to-server calls to Keycloak use the compose name; the issuer stays the browser-facing
+      # http://localhost:8080/... so tokens obtained from the host are still accepted
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI: http://keycloak:8080/realms/course-realm/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_TOKENURI: http://keycloak:8080/realms/course-realm/protocol/openid-connect/token
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_JWKSETURI: http://keycloak:8080/realms/course-realm/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_USERINFOURI: http://keycloak:8080/realms/course-realm/protocol/openid-connect/userinfo
+    ports:
+      - "8081:8081"
+
+  glossary-service:
+    profiles: ["apps"]
+    build:
+      context: .
+      dockerfile: glossary-service/Dockerfile
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/tms_glossary_db?createDatabaseIfNotExist=true&characterEncoding=UTF-8
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI: http://keycloak:8080/realms/course-realm/protocol/openid-connect/certs
+    ports:
+      - "8082:8082"
+
+  notification-service:
+    profiles: ["apps"]
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/tms_notification_db?createDatabaseIfNotExist=true&characterEncoding=UTF-8
+    ports:
+      - "8083:8083"
+
 volumes:
   tms_db_data:
+  tms_rabbitmq_data:

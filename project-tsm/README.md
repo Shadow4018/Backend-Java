@@ -26,13 +26,14 @@ MariaDB, Spring Security (OIDC через Keycloak + JWT resource server).
    | editor       | editor123       | USER, EDITOR       |
    | bob          | bob123          | USER               |
 
-3. Один раз зібрати й встановити модулі (щоб `core-service` і `glossary-service`
-   бачили `tms-common` у локальному репозиторії), потім запустити сервіси
+3. Один раз зібрати й встановити модулі (щоб сервіси бачили `tms-common` у
+   локальному репозиторії), потім запустити сервіси
    (з кореня репозиторію; кожен у своєму терміналі):
    ```bash
    mvn clean install -DskipTests
-   mvn -pl core-service spring-boot:run        # порт 8081, сам піднімає MariaDB і Keycloak
-   mvn -pl glossary-service spring-boot:run    # порт 8082, потрібна БД з кроку 2
+   mvn -pl core-service spring-boot:run          # порт 8081, сам піднімає MariaDB, Keycloak і RabbitMQ
+   mvn -pl glossary-service spring-boot:run      # порт 8082, потрібна БД з кроку 2
+   mvn -pl notification-service spring-boot:run  # порт 8083, потрібні БД і RabbitMQ з кроку 2
    ```
    `core-service` запускайте першим (або виконайте `docker compose up -d`):
    `glossary-service` сам контейнери не піднімає.
@@ -108,3 +109,57 @@ compose.yaml           MariaDB + Keycloak для розробки
 - Таблиця `glossary_terms` у БД `tms_db` залишилась від старої монолітної версії й більше не
   використовується (застосовані зміни Liquibase не редагуються); її можна видалити окремою
   міграцією після переносу даних.
+
+
+## Lab 8 — брокер повідомлень (RabbitMQ)
+
+Сервіси спілкуються **лише через брокер**, прямих HTTP-викликів між ними немає.
+
+```
+core-service (producer) --event--> RabbitMQ (tms.events) --queue--> notification-service (consumer)
+   :8081                            :5672 / UI :15672                    :8083, власна БД tms_notification_db
+```
+
+| Бізнес-дія в core-service | Подія (у `tms-common`) | Routing key | Черга споживача |
+|---|---|---|---|
+| створення проєкту | `ProjectCreatedEvent` | `project.created` | `notification.project-created` |
+| пропозиція перекладу | `TranslationProposedEvent` | `translation.proposed` | `notification.translation-proposed` |
+| затвердження перекладу | `TranslationApprovedEvent` | `translation.approved` | `notification.translation-approved` |
+
+Результат обробки — запис у таблиці `notifications`, видимий через `GET http://localhost:8083/api/notifications`
+(найновіші першими; ендпоінт лише для читання й відкритий, як і `GET /api/glossary`).
+
+**Брокер** — RabbitMQ 3.13 у `compose.yaml` (сервіс `rabbitmq`; AMQP `5672`, консоль http://localhost:15672, guest/guest).
+
+**Публікація після коміту (сценарій 2).** Сервіс у своєму `@Transactional`-методі лише викликає
+`ApplicationEventPublisher.publishEvent(...)`. `DomainEventRelay` (`@TransactionalEventListener(AFTER_COMMIT)`)
+відправляє подію в RabbitMQ, коли транзакція вже зафіксована. Помилка чи rollback → коміту немає → нічого не публікується.
+
+**Не втрачати дані, коли споживач не працює (сценарій 4).** Черги durable, повідомлення persistent, а публікатор сам
+оголошує (ідемпотентно) обмінник і черги, тож події чекають у черзі, доки `notification-service` не запуститься.
+Повідомлення підтверджується (ack) лише після збереження запису; при помилці — 3 повтори, потім dead-letter черга
+`<черга>.dlq` (повідомлення не зникає).
+
+**Ідемпотентність (сценарій 5).** Кожна подія має `eventId` (UUID, створюється один раз у момент дії). Споживач перед
+обробкою перевіряє `existsByEventId`; крім того в таблиці `UNIQUE(event_id)`. Повторна доставка нічого не змінює
+(`NotificationServiceUnitTest`, `NotificationEventListenerIntegrationTest`).
+
+**Незалежність (сценарій 3).** `notification-service` не має HTTP-клієнтів і залежить лише від `tms-common`
+(DTO подій та назви черг). Це гарантує і `maven-enforcer-plugin` (заборона залежності на `*-service`).
+
+**Адреса брокера (сценарій 6).** `spring.rabbitmq.host: ${RABBITMQ_HOST:localhost}`: з IDE — `localhost`, у Docker —
+`RABBITMQ_HOST=rabbitmq` (ім'я сервісу з `compose.yaml`). Сервіси-контейнери: `docker compose --profile apps up -d --build`
+(профіль `apps`; звичайний `docker compose up -d` їх не чіпає).
+
+**Відомі обмеження.** (1) Якщо сам брокер недоступний у момент коміту, подія не відправиться (логується як ERROR, запит
+завершується успішно) — повністю це закриває патерн transactional outbox. (2) Якщо БД споживача недоступна довше за
+3 повтори, повідомлення опиняється в `.dlq` і потребує ручного повторного відправлення (UI RabbitMQ → Move messages).
+
+### Перевірка вручну
+1. `docker compose up -d` (або старт core-service), потім запустити `core-service` і `notification-service`.
+2. Отримати токен ADMIN (Postman, тека «0. Auth») і створити проєкт: `POST http://localhost:8081/api/projects`.
+3. `GET http://localhost:8083/api/notifications` → з'явився запис `PROJECT_CREATED`; у логах: у core
+   `Published ProjectCreatedEvent`, у notification `Received ProjectCreatedEvent` / `Stored notification`.
+4. Сценарій «споживач зупинений»: зупинити notification-service, двічі створити проєкт (відповідь 201 обидва рази),
+   у http://localhost:15672 → Queues черга `notification.project-created` має `Ready = 2`; запустити сервіс —
+   черга спорожніє, у `/api/notifications` дві нові події.

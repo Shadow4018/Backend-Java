@@ -31,6 +31,8 @@
         <!-- independent, separately runnable services -->
         <module>core-service</module>
         <module>glossary-service</module>
+        <!-- Lab 8: consumer of the events published through RabbitMQ -->
+        <module>notification-service</module>
     </modules>
 
     <properties>

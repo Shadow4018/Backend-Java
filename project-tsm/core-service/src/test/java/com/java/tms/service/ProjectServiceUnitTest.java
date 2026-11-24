@@ -1,6 +1,7 @@
 package com.java.tms.service;
 
 import com.java.tms.async.SlowSideEffects;
+import com.java.tms.common.event.ProjectCreatedEvent;
 import com.java.tms.domain.dto.ProjectCreateRequest;
 import com.java.tms.domain.dto.ProjectResponse;
 import com.java.tms.domain.dto.ProjectUpdateRequest;
@@ -14,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,6 +44,8 @@ class ProjectServiceUnitTest {
     private SlowSideEffects slowSideEffects; // Lab 5: fire-and-forget email on create(); a
                                               // mock's void @Async method is a no-op, which is
                                               // exactly what this test needs.
+    @Mock
+    private ApplicationEventPublisher eventPublisher; // Lab 8: the domain event is handed to Spring here
     @InjectMocks
     private ProjectService projectService;
 
@@ -68,6 +72,49 @@ class ProjectServiceUnitTest {
         ArgumentCaptor<Project> savedCaptor = ArgumentCaptor.forClass(Project.class);
         verify(projectRepository).save(savedCaptor.capture());
         assertThat(savedCaptor.getValue().getName()).isEqualTo("Limbus Localization");
+    }
+
+    @Test
+    void create_validRequest_publishesExactlyOneProjectCreatedEventWithTheSavedData() {
+        // Lab 8, scenario 1: one business action -> one event, built from what was really saved
+        ProjectCreateRequest request = new ProjectCreateRequest("Limbus Localization", "desc", "en", "uk");
+        Project entityFromMapper = new Project();
+        Project savedEntity = new Project();
+        savedEntity.setId(42);
+        savedEntity.setName("Limbus Localization");
+        savedEntity.setSourceLanguage("en");
+        savedEntity.setTargetLanguage("uk");
+        when(projectMapper.toEntity(request)).thenReturn(entityFromMapper);
+        when(projectRepository.save(entityFromMapper)).thenReturn(savedEntity);
+        when(projectMapper.toResponse(savedEntity)).thenReturn(
+                new ProjectResponse(42, "Limbus Localization", "desc", "en", "uk", ProjectStatus.DRAFT));
+
+        projectService.create(request);
+
+        ArgumentCaptor<Object> published = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher, times(1)).publishEvent(published.capture());
+        assertThat(published.getValue()).isInstanceOfSatisfying(ProjectCreatedEvent.class, event -> {
+            assertThat(event.projectId()).isEqualTo(42);
+            assertThat(event.projectName()).isEqualTo("Limbus Localization");
+            assertThat(event.sourceLanguage()).isEqualTo("en");
+            assertThat(event.targetLanguage()).isEqualTo("uk");
+            assertThat(event.eventId()).isNotNull();
+        });
+    }
+
+    @Test
+    void create_repositoryRejectsSave_publishesNoEvent() {
+        // Lab 8, scenario 2: a failed action must not announce anything
+        ProjectCreateRequest request = new ProjectCreateRequest("Duplicate", null, "en", "uk");
+        Project entityFromMapper = new Project();
+        when(projectMapper.toEntity(request)).thenReturn(entityFromMapper);
+        when(projectRepository.save(entityFromMapper))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate name"));
+
+        assertThatThrownBy(() -> projectService.create(request))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test

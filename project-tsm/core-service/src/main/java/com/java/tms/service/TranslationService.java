@@ -1,5 +1,7 @@
 package com.java.tms.service;
 
+import com.java.tms.common.event.TranslationApprovedEvent;
+import com.java.tms.common.event.TranslationProposedEvent;
 import com.java.tms.domain.dto.TranslationCreateRequest;
 import com.java.tms.domain.dto.TranslationResponse;
 import com.java.tms.domain.enums.TranslationStatus;
@@ -9,6 +11,7 @@ import com.java.tms.domain.model.Translation;
 import com.java.tms.repository.TextKeyRepository;
 import com.java.tms.repository.TranslationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,8 @@ public class TranslationService {
     private final TranslationRepository translationRepository;
     private final TextKeyRepository textKeyRepository;
     private final TranslationMapper translationMapper;
+    // Lab 8: publishes domain events; they reach RabbitMQ only AFTER the transaction commits
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TranslationResponse propose(Integer textKeyId, TranslationCreateRequest request, String translatorName) {
@@ -35,7 +40,11 @@ public class TranslationService {
         translation.setTranslatorName(translatorName);
         translation.setStatus(TranslationStatus.PENDING);
 
-        return translationMapper.toResponse(translationRepository.save(translation));
+        Translation saved = translationRepository.save(translation);
+        // Lab 8: business action #2 (see ProjectService#create for how the commit is awaited)
+        eventPublisher.publishEvent(TranslationProposedEvent.of(
+                saved.getId(), textKeyId, saved.getLanguageCode(), saved.getTranslatorName()));
+        return translationMapper.toResponse(saved);
     }
 
     /**
@@ -71,7 +80,11 @@ public class TranslationService {
     public TranslationResponse approve(Integer translationId) {
         Translation translation = findOrThrow(translationId);
         translation.setStatus(TranslationStatus.APPROVED);
-        return translationMapper.toResponse(translationRepository.save(translation));
+        Translation saved = translationRepository.save(translation);
+        // Lab 8: business action #3
+        eventPublisher.publishEvent(TranslationApprovedEvent.of(
+                saved.getId(), textKeyIdOf(saved), saved.getLanguageCode(), saved.getTranslatorName()));
+        return translationMapper.toResponse(saved);
     }
 
     /**
@@ -112,6 +125,11 @@ public class TranslationService {
             throw new AccessDeniedException(
                     "Only the author of this translation proposal (or an admin) may " + action + " it");
         }
+    }
+
+    private Integer textKeyIdOf(Translation translation) {
+        // textKey is LAZY; this runs inside the service's transaction, so reading its id is safe
+        return translation.getTextKey() == null ? null : translation.getTextKey().getId();
     }
 
     private Translation findOrThrow(Integer translationId) {
