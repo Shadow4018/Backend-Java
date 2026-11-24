@@ -1,0 +1,46 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: notification-service
+
+  # Lab 8: адреса брокера - зі змінних середовища; значення після ":" діють при запуску з IDE.
+  # У Docker (compose.yaml) RABBITMQ_HOST=rabbitmq - це ім'я сервісу з compose, а не "localhost".
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        # повідомлення підтверджується (ack) лише після успішного завершення обробника;
+        # якщо сервіс впав посеред обробки - брокер віддасть повідомлення знову
+        acknowledge-mode: auto
+        # повідомлення, яке не вдалося обробити, не повертається в чергу безкінечно,
+        # а після повторів потрапляє в dead-letter чергу (<черга>.dlq) - не губиться
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1s
+          multiplier: 2.0
+          max-interval: 10s
+
+  # Власна БД сервісу. Контейнер MariaDB піднімає core-service або `docker compose up -d`.
+  datasource:
+    url: jdbc:mariadb://localhost:3307/tms_notification_db?createDatabaseIfNotExist=true&characterEncoding=UTF-8
+    username: root
+    password: ${DB_PASSWORD:root}
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    hibernate:
+      # схемою керує ТІЛЬКИ Liquibase
+      ddl-auto: none
+    show-sql: false
+
+  liquibase:
+    enabled: true
+    change-log: classpath:/db/changelog/changelog-master.xml
+    contexts: dev

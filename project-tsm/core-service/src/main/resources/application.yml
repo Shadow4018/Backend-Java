@@ -46,6 +46,16 @@ spring:
       file: ../compose.yaml
       lifecycle-management: start-and-stop
 
+  # Lab 8: адреса брокера - зі змінних середовища; значення після ":" діють при запуску з IDE.
+  # У Docker (compose.yaml) RABBITMQ_HOST=rabbitmq - це ім'я сервісу з compose, а не "localhost".
+  # (Під час `mvn spring-boot:run` із docker-compose support Spring Boot додатково підставляє
+  # адресу контейнера, який сам підняв - вона збігається зі значенням за замовчуванням.)
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
   datasource:
     url: jdbc:mariadb://localhost:3307/tms_db?characterEncoding=UTF-8
     username: root

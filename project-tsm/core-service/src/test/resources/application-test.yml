@@ -1,3 +1,9 @@
+# Lab 8: у звичайних тестах брокер не потрібен - публікація подій вимкнена.
+# Тести публікації вмикають її явно (див. DomainEventPublishingIntegrationTest).
+app:
+  messaging:
+    enabled: false
+
 spring:
   docker:
     compose:

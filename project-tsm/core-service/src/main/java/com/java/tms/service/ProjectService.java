@@ -3,6 +3,7 @@ package com.java.tms.service;
 import com.java.tms.aop.annotation.AuditChange;
 import com.java.tms.aop.annotation.ExecutionTimed;
 import com.java.tms.async.SlowSideEffects;
+import com.java.tms.common.event.ProjectCreatedEvent;
 import com.java.tms.domain.dto.ProjectCreateRequest;
 import com.java.tms.domain.dto.ProjectResponse;
 import com.java.tms.domain.dto.ProjectUpdateRequest;
@@ -10,6 +11,7 @@ import com.java.tms.domain.mapper.ProjectMapper;
 import com.java.tms.domain.model.Project;
 import com.java.tms.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,12 +29,19 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final ProjectMapper projectMapper;
     private final SlowSideEffects slowSideEffects;
+    // Lab 8: publishes the domain event; it is forwarded to RabbitMQ only AFTER the commit
+    private final ApplicationEventPublisher eventPublisher;
 
     @AuditChange(action = "CREATE_PROJECT")
     @Transactional
     public ProjectResponse create(ProjectCreateRequest request) {
         Project project = projectMapper.toEntity(request);
-        ProjectResponse response = projectMapper.toResponse(projectRepository.save(project));
+        Project saved = projectRepository.save(project);
+        ProjectResponse response = projectMapper.toResponse(saved);
+        // Lab 8: business action #1. Only an application event here - the relay sends it to the broker
+        // after the transaction commits, so a rollback publishes nothing.
+        eventPublisher.publishEvent(ProjectCreatedEvent.of(
+                saved.getId(), saved.getName(), saved.getSourceLanguage(), saved.getTargetLanguage()));
         // Fire-and-forget (Lab 5): we do not wait for this, and nothing here ever inspects
         // its result - create() returns to its own caller well before the simulated ~1s
         // "email send" actually completes on the dedicated async executor.

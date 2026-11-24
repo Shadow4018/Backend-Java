@@ -1,5 +1,7 @@
 package com.java.tms.service;
 
+import com.java.tms.common.event.TranslationApprovedEvent;
+import com.java.tms.common.event.TranslationProposedEvent;
 import com.java.tms.domain.dto.TranslationCreateRequest;
 import com.java.tms.domain.dto.TranslationResponse;
 import com.java.tms.domain.enums.TranslationStatus;
@@ -14,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
@@ -43,6 +46,8 @@ class TranslationServiceUnitTest {
     private TextKeyRepository textKeyRepository;
     @Mock
     private TranslationMapper translationMapper;
+    @Mock
+    private ApplicationEventPublisher eventPublisher; // Lab 8: domain events are handed to Spring here
     @InjectMocks
     private TranslationService translationService;
 
@@ -70,6 +75,44 @@ class TranslationServiceUnitTest {
         assertThat(saved.getTextKey()).isSameAs(textKey);
         assertThat(saved.getTranslatorName()).isEqualTo("translator-alice");
         assertThat(saved.getStatus()).isEqualTo(TranslationStatus.PENDING);
+    }
+
+    @Test
+    void propose_existingTextKey_publishesOneTranslationProposedEvent() {
+        // Lab 8, scenario 1
+        TextKey textKey = new TextKey();
+        textKey.setId(5);
+        TranslationCreateRequest request = new TranslationCreateRequest("uk", "Привіт", null);
+        Translation fromMapper = new Translation();
+        fromMapper.setLanguageCode("uk");
+        when(textKeyRepository.findById(5)).thenReturn(Optional.of(textKey));
+        when(translationMapper.toEntity(request)).thenReturn(fromMapper);
+        when(translationRepository.save(fromMapper)).thenAnswer(invocation -> {
+            Translation t = invocation.getArgument(0);
+            t.setId(77); // what the database does on INSERT
+            return t;
+        });
+        when(translationMapper.toResponse(fromMapper)).thenReturn(new TranslationResponse());
+
+        translationService.propose(5, request, "translator-alice");
+
+        ArgumentCaptor<Object> published = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher, times(1)).publishEvent(published.capture());
+        assertThat(published.getValue()).isInstanceOfSatisfying(TranslationProposedEvent.class, event -> {
+            assertThat(event.translationId()).isEqualTo(77);
+            assertThat(event.textKeyId()).isEqualTo(5);
+            assertThat(event.translatorName()).isEqualTo("translator-alice");
+        });
+    }
+
+    @Test
+    void propose_unknownTextKey_publishesNoEvent() {
+        when(textKeyRepository.findById(404)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> translationService.propose(404, new TranslationCreateRequest("uk", "x", null), "bob"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -175,6 +218,41 @@ class TranslationServiceUnitTest {
         // Assert
         assertThat(existing.getStatus()).isEqualTo(TranslationStatus.APPROVED);
         verify(translationRepository).save(existing);
+    }
+
+    @Test
+    void approve_existingTranslation_publishesOneTranslationApprovedEvent() {
+        // Lab 8, scenario 1
+        TextKey textKey = new TextKey();
+        textKey.setId(5);
+        Translation existing = new Translation();
+        existing.setId(1);
+        existing.setTextKey(textKey);
+        existing.setLanguageCode("uk");
+        existing.setTranslatorName("alice");
+        existing.setStatus(TranslationStatus.PENDING);
+        when(translationRepository.findById(1)).thenReturn(Optional.of(existing));
+        when(translationRepository.save(existing)).thenReturn(existing);
+        when(translationMapper.toResponse(existing)).thenReturn(new TranslationResponse());
+
+        translationService.approve(1);
+
+        ArgumentCaptor<Object> published = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher, times(1)).publishEvent(published.capture());
+        assertThat(published.getValue()).isInstanceOfSatisfying(TranslationApprovedEvent.class, event -> {
+            assertThat(event.translationId()).isEqualTo(1);
+            assertThat(event.textKeyId()).isEqualTo(5);
+            assertThat(event.translatorName()).isEqualTo("alice");
+        });
+    }
+
+    @Test
+    void approve_unknownTranslation_publishesNoEvent() {
+        when(translationRepository.findById(404)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> translationService.approve(404)).isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test

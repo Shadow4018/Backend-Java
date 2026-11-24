@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:notification_test;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+  liquibase:
+    enabled: true
+    change-log: classpath:/db/changelog/changelog-master.xml
+    contexts: test
+
+  rabbitmq:
+    listener:
+      simple:
+        # у тестах слухачі не підключаються до брокера (його немає): обробники викликаються
+        # напряму, а справжній обмін повідомленнями перевіряється вручну (див. README)
+        auto-startup: false
